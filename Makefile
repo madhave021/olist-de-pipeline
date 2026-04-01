@@ -1,4 +1,4 @@
-.PHONY: install test lint package clean
+.PHONY: install test lint package clean deploy
 
 install:
 	pip install -r requirements.txt
@@ -20,6 +20,13 @@ package:
 		--exclude "*__pycache__*" \
 		--exclude "*.pytest_cache*" \
 		--exclude "dist/*"
+
+deploy:
+	aws cloudformation deploy \
+		--stack-name olist-de-pipeline-dev \
+		--template-file infra/cloudformation/template.yml \
+		--region ap-south-1 \
+		--capabilities CAPABILITY_NAMED_IAM
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
