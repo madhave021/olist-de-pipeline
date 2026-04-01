@@ -88,10 +88,8 @@ Resources:
       MemorySize: 512
       Timeout: 300
       Code:
-        ZipFile: |
-          def lambda_handler(event, context):
-              print("olist-ingestor triggered")
-              return {"statusCode": 200, "body": "OK"}
+        S3Bucket: !Ref RawDataBucket
+        S3Key: lambda/olist-ingestor.zip
       Environment:
         Variables:
           RAW_BUCKET: !Ref RawDataBucket
