@@ -1,0 +1,146 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Olist DE Pipeline - S3 buckets, Lambda ingestor, EventBridge schedule, IAM role
+
+# ── Parameters ────────────────────────────────────────────────────────────────
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Deployment environment
+
+# ── Resources ─────────────────────────────────────────────────────────────────
+Resources:
+
+  # S3 — Raw data bucket
+  RawDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: olist-raw-dev
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: olist-de-pipeline
+        - Key: Environment
+          Value: !Ref Environment
+
+  # S3 — Processed data bucket
+  ProcessedDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: olist-processed-dev
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: olist-de-pipeline
+        - Key: Environment
+          Value: !Ref Environment
+
+  # IAM — Lambda execution role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: olist-ingestor-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      Tags:
+        - Key: Project
+          Value: olist-de-pipeline
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Lambda — Olist ingestor
+  OlistIngestorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: olist-ingestor
+      Runtime: python3.11
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      MemorySize: 512
+      Timeout: 300
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              print("olist-ingestor triggered")
+              return {"statusCode": 200, "body": "OK"}
+      Environment:
+        Variables:
+          RAW_BUCKET: !Ref RawDataBucket
+          PROCESSED_BUCKET: !Ref ProcessedDataBucket
+      Tags:
+        - Key: Project
+          Value: olist-de-pipeline
+        - Key: Environment
+          Value: !Ref Environment
+
+  # EventBridge — Permission for EventBridge to invoke Lambda
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt OlistIngestorFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt WeekdayScheduleRule.Arn
+
+  # EventBridge — Weekday schedule at 18:00 UTC
+  WeekdayScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: olist-ingestor-weekday-schedule
+      Description: Trigger olist-ingestor Lambda every weekday at 6 PM UTC
+      ScheduleExpression: "cron(0 18 ? * MON-FRI *)"
+      State: ENABLED
+      Targets:
+        - Id: OlistIngestorTarget
+          Arn: !GetAtt OlistIngestorFunction.Arn
+
+# ── Outputs ───────────────────────────────────────────────────────────────────
+Outputs:
+  RawBucketName:
+    Description: Name of the raw data S3 bucket
+    Value: !Ref RawDataBucket
+
+  ProcessedBucketName:
+    Description: Name of the processed data S3 bucket
+    Value: !Ref ProcessedDataBucket
+
+  LambdaFunctionArn:
+    Description: ARN of the olist-ingestor Lambda function
+    Value: !GetAtt OlistIngestorFunction.Arn
+
+  LambdaRoleArn:
+    Description: ARN of the Lambda IAM execution role
+    Value: !GetAtt LambdaExecutionRole.Arn
+
+  EventBridgeRuleArn:
+    Description: ARN of the EventBridge weekday schedule rule
+    Value: !GetAtt WeekdayScheduleRule.Arn
