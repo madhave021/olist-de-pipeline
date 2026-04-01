@@ -108,7 +108,7 @@ Resources:
       MemorySize: 512
       Timeout: 300
       Code:
-        S3Bucket: !Ref LambdaArtifactsBucket
+        S3Bucket: olist-lambda-artifacts
         S3Key: lambda/olist-ingestor.zip
       Environment:
         Variables:

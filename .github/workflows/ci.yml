@@ -56,6 +56,34 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ap-south-1
 
+      - name: Package Lambda
+        run: |
+          zip -j olist-ingestor.zip batch_pipeline/lambda/olist_ingestor.py
+
+      - name: Upload Lambda artifact to S3
+        run: |
+          aws s3 cp olist-ingestor.zip s3://olist-lambda-artifacts/lambda/olist-ingestor.zip
+
+      - name: Cleanup failed CloudFormation stack
+        run: |
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name olist-de-pipeline \
+            --region ap-south-1 \
+            --query "Stacks[0].StackStatus" \
+            --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+          if [ "$STATUS" = "ROLLBACK_COMPLETE" ] || [ "$STATUS" = "CREATE_FAILED" ]; then
+            echo "Stack is in $STATUS state — deleting before redeploy..."
+            aws cloudformation delete-stack \
+              --stack-name olist-de-pipeline \
+              --region ap-south-1
+            aws cloudformation wait stack-delete-complete \
+              --stack-name olist-de-pipeline \
+              --region ap-south-1
+            echo "Stack deleted."
+          else
+            echo "Stack status: $STATUS — no cleanup needed."
+          fi
+
       - name: Deploy CloudFormation stack
         run: |
           aws cloudformation deploy \
