@@ -56,6 +56,26 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
+  # S3 — Lambda artifacts bucket
+  LambdaArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: olist-lambda-artifacts
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: olist-de-pipeline
+        - Key: Environment
+          Value: !Ref Environment
+
   # IAM — Lambda execution role
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -88,7 +108,7 @@ Resources:
       MemorySize: 512
       Timeout: 300
       Code:
-        S3Bucket: !Ref RawDataBucket
+        S3Bucket: !Ref LambdaArtifactsBucket
         S3Key: lambda/olist-ingestor.zip
       Environment:
         Variables:
