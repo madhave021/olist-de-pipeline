@@ -23,7 +23,7 @@ package:
 
 deploy:
 	aws cloudformation deploy \
-		--stack-name olist-de-pipeline-dev \
+		--stack-name olist-de-pipeline \
 		--template-file infra/cloudformation/template.yml \
 		--region ap-south-1 \
 		--capabilities CAPABILITY_NAMED_IAM
