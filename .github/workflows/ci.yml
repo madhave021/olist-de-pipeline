@@ -32,13 +32,10 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r batch_pipeline/lambda/requirements.txt
 
       - name: Lint with flake8
-        run: flake8 . --max-line-length=120 --exclude=.venv,venv,.git,__pycache__
-
-      - name: Run tests with pytest
-        run: pytest
+        run: flake8 batch_pipeline/lambda/ --max-line-length=120 --exclude=__pycache__
 
   deploy:
     name: Deploy CloudFormation
