@@ -80,6 +80,14 @@ Resources:
                 Action:
                   - s3:GetObject
                 Resource: arn:aws:s3:::olist-lambda-artifacts/*
+        - PolicyName: olist-kaggle-secret-read
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref KaggleCredentialsSecret
       Tags:
         - Key: Project
           Value: olist-de-pipeline
@@ -103,6 +111,19 @@ Resources:
         Variables:
           RAW_BUCKET: !Ref RawDataBucket
           PROCESSED_BUCKET: !Ref ProcessedDataBucket
+      Tags:
+        - Key: Project
+          Value: olist-de-pipeline
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Secrets Manager — Kaggle credentials
+  KaggleCredentialsSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: olist/kaggle-credentials
+      Description: Kaggle API credentials for the Olist data pipeline
+      SecretString: '{"KAGGLE_USERNAME": "dummy", "KAGGLE_KEY": "dummy"}'
       Tags:
         - Key: Project
           Value: olist-de-pipeline
@@ -151,3 +172,7 @@ Outputs:
   EventBridgeRuleArn:
     Description: ARN of the EventBridge weekday schedule rule
     Value: !GetAtt WeekdayScheduleRule.Arn
+
+  KaggleCredentialsSecretArn:
+    Description: ARN of the Kaggle credentials secret in Secrets Manager
+    Value: !Ref KaggleCredentialsSecret
