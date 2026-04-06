@@ -1,17 +1,15 @@
 import os
-
-# Must be set before ANY kaggle import
-os.environ["KAGGLE_CONFIG_DIR"] = "/tmp"
-os.environ["KAGGLE_USERNAME"] = "placeholder"
-os.environ["KAGGLE_KEY"] = "placeholder"
-
 import json
 import logging
 import glob
 import stat
 import boto3
 from botocore.exceptions import ClientError
-from kaggle.api.kaggle_api_extended import KaggleApi
+
+# Must be set before kaggle is imported anywhere in this process
+os.environ.setdefault("KAGGLE_CONFIG_DIR", "/tmp")
+os.environ.setdefault("KAGGLE_USERNAME", "placeholder")
+os.environ.setdefault("KAGGLE_KEY", "placeholder")
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -54,6 +52,7 @@ def setup_kaggle_auth(username: str, key: str):
 def download_dataset() -> str:
     logger.info(f"Downloading dataset '{KAGGLE_DATASET}' to {DOWNLOAD_DIR}")
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    from kaggle.api.kaggle_api_extended import KaggleApi
     api = KaggleApi()
     api.authenticate()
     api.dataset_download_files(KAGGLE_DATASET, path=DOWNLOAD_DIR, unzip=True)
@@ -73,7 +72,7 @@ def upload_to_bronze(download_dir: str) -> list:
         s3_key = f"{BRONZE_PREFIX}/{filename}"
         try:
             s3.upload_file(local_path, RAW_BUCKET, s3_key)
-            logger.info(f"Uploaded {filename} → s3://{RAW_BUCKET}/{s3_key}")
+            logger.info(f"Uploaded {filename} -> s3://{RAW_BUCKET}/{s3_key}")
             uploaded.append(s3_key)
         except ClientError as e:
             logger.error(f"Failed to upload {filename}: {e}")
