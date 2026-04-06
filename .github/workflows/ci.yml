@@ -32,7 +32,9 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r batch_pipeline/lambda/requirements.txt
+        run: |
+          pip install -r batch_pipeline/lambda/requirements.txt
+          pip install flake8
 
       - name: Lint with flake8
         run: flake8 batch_pipeline/lambda/ --max-line-length=120 --exclude=__pycache__
