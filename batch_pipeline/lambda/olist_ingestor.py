@@ -2,14 +2,10 @@ import os
 import json
 import logging
 import glob
-import stat
+import zipfile
 import boto3
+import requests
 from botocore.exceptions import ClientError
-
-# Must be set before kaggle is imported anywhere in this process
-os.environ.setdefault("KAGGLE_CONFIG_DIR", "/tmp")
-os.environ.setdefault("KAGGLE_USERNAME", "placeholder")
-os.environ.setdefault("KAGGLE_KEY", "placeholder")
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -22,6 +18,8 @@ SECRET_NAME = "olist/kaggle-credentials"
 RAW_BUCKET = os.environ.get("RAW_BUCKET", "olist-raw-105906274703")
 BRONZE_PREFIX = "bronze/olist"
 KAGGLE_DATASET = "olistbr/brazilian-ecommerce"
+KAGGLE_DOWNLOAD_URL = f"https://www.kaggle.com/api/v1/datasets/{KAGGLE_DATASET}/download"
+DOWNLOAD_ZIP = "/tmp/olist.zip"
 DOWNLOAD_DIR = "/tmp/olist"
 
 
@@ -38,25 +36,18 @@ def get_kaggle_credentials() -> dict:
         raise
 
 
-def setup_kaggle_auth(username: str, key: str):
-    logger.info("Writing kaggle.json to /tmp")
-    kaggle_json_path = "/tmp/kaggle.json"
-    with open(kaggle_json_path, "w") as f:
-        json.dump({"username": username, "key": key}, f)
-    os.chmod(kaggle_json_path, stat.S_IRUSR | stat.S_IWUSR)
-    os.environ["KAGGLE_USERNAME"] = username
-    os.environ["KAGGLE_KEY"] = key
-    logger.info("kaggle.json written with chmod 600")
-
-
-def download_dataset() -> str:
-    logger.info(f"Downloading dataset '{KAGGLE_DATASET}' to {DOWNLOAD_DIR}")
+def download_dataset(username: str, key: str) -> str:
+    logger.info(f"Downloading dataset from Kaggle API: {KAGGLE_DOWNLOAD_URL}")
+    response = requests.get(KAGGLE_DOWNLOAD_URL, auth=(username, key), stream=True)
+    response.raise_for_status()
+    with open(DOWNLOAD_ZIP, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
+    logger.info(f"Download complete, saved to {DOWNLOAD_ZIP}")
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-    from kaggle.api.kaggle_api_extended import KaggleApi
-    api = KaggleApi()
-    api.authenticate()
-    api.dataset_download_files(KAGGLE_DATASET, path=DOWNLOAD_DIR, unzip=True)
-    logger.info("Dataset downloaded and unzipped successfully.")
+    with zipfile.ZipFile(DOWNLOAD_ZIP, "r") as z:
+        z.extractall(DOWNLOAD_DIR)
+    logger.info(f"Extracted to {DOWNLOAD_DIR}")
     return DOWNLOAD_DIR
 
 
@@ -85,8 +76,7 @@ def lambda_handler(event, context):
     try:
         credentials = get_kaggle_credentials()
         logger.info(f"Username: {credentials['KAGGLE_USERNAME'][:3]}***")
-        setup_kaggle_auth(credentials["KAGGLE_USERNAME"], credentials["KAGGLE_KEY"])
-        download_dir = download_dataset()
+        download_dir = download_dataset(credentials["KAGGLE_USERNAME"], credentials["KAGGLE_KEY"])
         uploaded_files = upload_to_bronze(download_dir)
         result = {
             "status": "success",
