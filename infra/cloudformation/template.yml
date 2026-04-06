@@ -16,7 +16,7 @@ Resources:
   RawDataBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: olist-raw-dev
+      BucketName: olist-raw
       VersioningConfiguration:
         Status: Enabled
       BucketEncryption:
@@ -38,7 +38,7 @@ Resources:
   ProcessedDataBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: olist-processed-dev
+      BucketName: olist-processed
       VersioningConfiguration:
         Status: Enabled
       BucketEncryption:
