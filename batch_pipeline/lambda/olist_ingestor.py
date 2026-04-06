@@ -43,6 +43,11 @@ def download_dataset(kaggle_username: str, kaggle_key: str) -> str:
     os.environ["KAGGLE_KEY"] = kaggle_key
     os.environ["KAGGLE_CONFIG_DIR"] = "/tmp"
 
+    kaggle_json_path = "/tmp/kaggle.json"
+    with open(kaggle_json_path, "w") as f:
+        json.dump({"username": kaggle_username, "key": kaggle_key}, f)
+    os.chmod(kaggle_json_path, 0o600)
+
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
     logger.info(f"Downloading dataset '{KAGGLE_DATASET}' to {DOWNLOAD_DIR}")
