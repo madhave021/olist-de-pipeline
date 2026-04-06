@@ -41,6 +41,7 @@ def download_dataset(kaggle_username: str, kaggle_key: str) -> str:
     """Download the Olist dataset to /tmp using the Kaggle API."""
     os.environ["KAGGLE_USERNAME"] = kaggle_username
     os.environ["KAGGLE_KEY"] = kaggle_key
+    os.environ["KAGGLE_CONFIG_DIR"] = "/tmp"
 
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
