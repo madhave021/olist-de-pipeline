@@ -62,7 +62,7 @@ jobs:
 
       - name: Upload Lambda artifact to S3
         run: |
-          aws s3 cp olist-ingestor.zip s3://olist-lambda-artifacts/lambda/olist-ingestor.zip
+          aws s3 cp olist-ingestor.zip s3://olist-lambda-artifacts-105906274703/lambda/olist-ingestor.zip
 
       - name: Cleanup failed CloudFormation stack
         run: |
