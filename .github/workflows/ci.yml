@@ -33,8 +33,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r batch_pipeline/lambda/requirements.txt
-          pip install flake8
+          pip install --no-cache-dir -r batch_pipeline/lambda/requirements.txt
+          pip install --no-cache-dir flake8
 
       - name: Lint with flake8
         run: flake8 batch_pipeline/lambda/ --max-line-length=120 --exclude=__pycache__
@@ -57,8 +57,10 @@ jobs:
 
       - name: Package Lambda
         run: |
-          pip install -r batch_pipeline/lambda/requirements.txt -t /tmp/lambda_package/
+          pip install --no-cache-dir -r batch_pipeline/lambda/requirements.txt -t /tmp/lambda_package/
           cp batch_pipeline/lambda/olist_ingestor.py /tmp/lambda_package/
+          find /tmp/lambda_package -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+          find /tmp/lambda_package -name "*.pyc" -delete 2>/dev/null || true
           cd /tmp/lambda_package && zip -r $GITHUB_WORKSPACE/olist-ingestor.zip .
 
       - name: Upload Lambda artifact to S3
@@ -91,4 +93,13 @@ jobs:
             --stack-name olist-de-pipeline \
             --template-file infra/cloudformation/template.yml \
             --region ap-south-1 \
-            --capabilities CAPABILITY_NAMED_IAM
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Force Lambda code update
+        run: |
+          aws lambda update-function-code \
+            --function-name olist-ingestor \
+            --s3-bucket olist-lambda-artifacts-105906274703 \
+            --s3-key lambda/olist-ingestor.zip \
+            --region ap-south-1

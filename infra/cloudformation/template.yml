@@ -142,6 +142,7 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       MemorySize: 512
       Timeout: 300
+      ReservedConcurrentExecutions: 1
       Code:
         S3Bucket: olist-lambda-artifacts-105906274703
         S3Key: lambda/olist-ingestor.zip
