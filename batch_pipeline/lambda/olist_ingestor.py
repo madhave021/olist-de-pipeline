@@ -41,16 +41,21 @@ def download_dataset(kaggle_username: str, kaggle_key: str) -> str:
     """Download the Olist dataset to /tmp using the Kaggle API."""
     os.environ["KAGGLE_USERNAME"] = kaggle_username
     os.environ["KAGGLE_KEY"] = kaggle_key
+    logger.info("Setting KAGGLE_CONFIG_DIR to /tmp")
     os.environ["KAGGLE_CONFIG_DIR"] = "/tmp"
 
     kaggle_json_path = "/tmp/kaggle.json"
+    logger.info(f"Writing kaggle.json to {kaggle_json_path}")
     with open(kaggle_json_path, "w") as f:
         json.dump({"username": kaggle_username, "key": kaggle_key}, f)
     os.chmod(kaggle_json_path, 0o600)
+    logger.info("kaggle.json written successfully, permissions set to 600")
 
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    logger.info(f"Download directory created: {DOWNLOAD_DIR}")
 
     logger.info(f"Downloading dataset '{KAGGLE_DATASET}' to {DOWNLOAD_DIR}")
+    logger.info("Initialising Kaggle API")
     from kaggle.api.kaggle_api_extended import KaggleApi
     api = KaggleApi()
     api.authenticate()
@@ -91,9 +96,11 @@ def lambda_handler(event, context):
     Fetches Olist dataset from Kaggle and uploads raw CSVs to S3 bronze layer.
     Triggered by EventBridge on weekdays at 18:00 UTC.
     """
+    logger.info("Lambda started")
     logger.info("Starting Bronze ingestion.")
     try:
         credentials = get_kaggle_credentials()
+        logger.info(f"Credentials fetched - username: {credentials['KAGGLE_USERNAME'][:3]}***")
         download_dir = download_dataset(
             kaggle_username=credentials["KAGGLE_USERNAME"],
             kaggle_key=credentials["KAGGLE_KEY"],
