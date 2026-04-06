@@ -58,7 +58,9 @@ jobs:
 
       - name: Package Lambda
         run: |
-          zip -j olist-ingestor.zip batch_pipeline/lambda/olist_ingestor.py
+          pip install -r batch_pipeline/lambda/requirements.txt -t /tmp/lambda_package/
+          cp batch_pipeline/lambda/olist_ingestor.py /tmp/lambda_package/
+          cd /tmp/lambda_package && zip -r $GITHUB_WORKSPACE/olist-ingestor.zip .
 
       - name: Upload Lambda artifact to S3
         run: |
