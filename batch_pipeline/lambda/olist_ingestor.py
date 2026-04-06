@@ -1,18 +1,24 @@
 import os
+
+# Must be set before ANY kaggle import
+os.environ["KAGGLE_CONFIG_DIR"] = "/tmp"
+os.environ["KAGGLE_USERNAME"] = "placeholder"
+os.environ["KAGGLE_KEY"] = "placeholder"
+
 import json
 import logging
 import glob
+import stat
 import boto3
 from botocore.exceptions import ClientError
+from kaggle.api.kaggle_api_extended import KaggleApi
 
-# ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
-# ── Constants ─────────────────────────────────────────────────────────────────
 REGION = "ap-south-1"
 SECRET_NAME = "olist/kaggle-credentials"
 RAW_BUCKET = os.environ.get("RAW_BUCKET", "olist-raw-105906274703")
@@ -21,42 +27,33 @@ KAGGLE_DATASET = "olistbr/brazilian-ecommerce"
 DOWNLOAD_DIR = "/tmp/olist"
 
 
-# ── Secrets ───────────────────────────────────────────────────────────────────
 def get_kaggle_credentials() -> dict:
-    """Fetch KAGGLE_USERNAME and KAGGLE_KEY from AWS Secrets Manager."""
-    logger.info(f"Fetching Kaggle credentials from Secrets Manager: {SECRET_NAME}")
+    logger.info(f"Fetching credentials from Secrets Manager: {SECRET_NAME}")
     client = boto3.client("secretsmanager", region_name=REGION)
     try:
         response = client.get_secret_value(SecretId=SECRET_NAME)
         secret = json.loads(response["SecretString"])
-        logger.info("Kaggle credentials fetched successfully.")
+        logger.info("Credentials fetched successfully.")
         return secret
     except ClientError as e:
-        logger.error(f"Failed to fetch secret '{SECRET_NAME}': {e}")
+        logger.error(f"Failed to fetch secret: {e}")
         raise
 
 
-# ── Kaggle download ───────────────────────────────────────────────────────────
-def download_dataset(kaggle_username: str, kaggle_key: str) -> str:
-    """Download the Olist dataset to /tmp using the Kaggle API."""
-    os.environ["KAGGLE_USERNAME"] = kaggle_username
-    os.environ["KAGGLE_KEY"] = kaggle_key
-    logger.info("Setting KAGGLE_CONFIG_DIR to /tmp")
-    os.environ["KAGGLE_CONFIG_DIR"] = "/tmp"
-
+def setup_kaggle_auth(username: str, key: str):
+    logger.info("Writing kaggle.json to /tmp")
     kaggle_json_path = "/tmp/kaggle.json"
-    logger.info(f"Writing kaggle.json to {kaggle_json_path}")
     with open(kaggle_json_path, "w") as f:
-        json.dump({"username": kaggle_username, "key": kaggle_key}, f)
-    os.chmod(kaggle_json_path, 0o600)
-    logger.info("kaggle.json written successfully, permissions set to 600")
+        json.dump({"username": username, "key": key}, f)
+    os.chmod(kaggle_json_path, stat.S_IRUSR | stat.S_IWUSR)
+    os.environ["KAGGLE_USERNAME"] = username
+    os.environ["KAGGLE_KEY"] = key
+    logger.info("kaggle.json written with chmod 600")
 
-    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-    logger.info(f"Download directory created: {DOWNLOAD_DIR}")
 
+def download_dataset() -> str:
     logger.info(f"Downloading dataset '{KAGGLE_DATASET}' to {DOWNLOAD_DIR}")
-    logger.info("Initialising Kaggle API")
-    from kaggle.api.kaggle_api_extended import KaggleApi
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     api = KaggleApi()
     api.authenticate()
     api.dataset_download_files(KAGGLE_DATASET, path=DOWNLOAD_DIR, unzip=True)
@@ -64,16 +61,12 @@ def download_dataset(kaggle_username: str, kaggle_key: str) -> str:
     return DOWNLOAD_DIR
 
 
-# ── S3 upload ─────────────────────────────────────────────────────────────────
-def upload_to_bronze(download_dir: str) -> list[str]:
-    """Upload each CSV from download_dir to s3://<RAW_BUCKET>/bronze/olist/<filename>."""
+def upload_to_bronze(download_dir: str) -> list:
     s3 = boto3.client("s3", region_name=REGION)
     csv_files = glob.glob(os.path.join(download_dir, "*.csv"))
-
     if not csv_files:
         logger.warning(f"No CSV files found in {download_dir}")
         return []
-
     uploaded = []
     for local_path in csv_files:
         filename = os.path.basename(local_path)
@@ -85,28 +78,17 @@ def upload_to_bronze(download_dir: str) -> list[str]:
         except ClientError as e:
             logger.error(f"Failed to upload {filename}: {e}")
             raise
-
     return uploaded
 
 
-# ── Handler ───────────────────────────────────────────────────────────────────
 def lambda_handler(event, context):
-    """
-    Bronze ingestion Lambda.
-    Fetches Olist dataset from Kaggle and uploads raw CSVs to S3 bronze layer.
-    Triggered by EventBridge on weekdays at 18:00 UTC.
-    """
-    logger.info("Lambda started")
-    logger.info("Starting Bronze ingestion.")
+    logger.info("Lambda started — Bronze ingestion")
     try:
         credentials = get_kaggle_credentials()
-        logger.info(f"Credentials fetched - username: {credentials['KAGGLE_USERNAME'][:3]}***")
-        download_dir = download_dataset(
-            kaggle_username=credentials["KAGGLE_USERNAME"],
-            kaggle_key=credentials["KAGGLE_KEY"],
-        )
+        logger.info(f"Username: {credentials['KAGGLE_USERNAME'][:3]}***")
+        setup_kaggle_auth(credentials["KAGGLE_USERNAME"], credentials["KAGGLE_KEY"])
+        download_dir = download_dataset()
         uploaded_files = upload_to_bronze(download_dir)
-
         result = {
             "status": "success",
             "bucket": RAW_BUCKET,
@@ -115,7 +97,6 @@ def lambda_handler(event, context):
         }
         logger.info(f"Bronze ingestion complete. {result['count']} file(s) uploaded.")
         return {"statusCode": 200, "body": json.dumps(result)}
-
     except Exception as e:
         logger.error(f"Bronze ingestion failed: {e}")
         return {"statusCode": 500, "body": json.dumps({"status": "error", "message": str(e)})}
