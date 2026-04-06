@@ -18,7 +18,7 @@ SECRET_NAME = "olist/kaggle-credentials"
 RAW_BUCKET = os.environ.get("RAW_BUCKET", "olist-raw-105906274703")
 BRONZE_PREFIX = "bronze/olist"
 KAGGLE_DATASET = "olistbr/brazilian-ecommerce"
-KAGGLE_DOWNLOAD_URL = f"https://www.kaggle.com/api/v1/datasets/{KAGGLE_DATASET}/download"
+KAGGLE_DOWNLOAD_URL = f"https://www.kaggle.com/api/v1/datasets/download/{KAGGLE_DATASET}"
 DOWNLOAD_ZIP = "/tmp/olist.zip"
 DOWNLOAD_DIR = "/tmp/olist"
 
