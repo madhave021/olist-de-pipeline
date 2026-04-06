@@ -1,73 +1,102 @@
-# Olist E-Commerce Data Pipeline
+# olist-de-pipeline
 
-An end-to-end data engineering pipeline built on AWS for processing the [Olist Brazilian E-Commerce dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce). It covers batch ingestion, real-time streaming, infrastructure-as-code, and an AI-powered analytics agent.
+End-to-end data engineering pipeline on AWS for the Olist Brazilian E-Commerce dataset — covering batch ingestion, real-time streaming, and Databricks transformations.
 
-## Architecture
+---
+
+## Architecture Overview
 
 ```
-Raw Data (S3)
-    │
-    ├── Batch Pipeline (PySpark)  ──► Processed Data (S3 Parquet)
-    │
-    └── Streaming Pipeline (Kinesis + Kafka)  ──► Real-time Events
-                                                        │
-                                              AI Agent (Claude / Anthropic)
-                                                        │
-                                              Analytics & Insights
+Kaggle (Source)
+      │
+      ▼
+[Bronze]  s3://olist-raw-105906274703/bronze/olist/       ← Raw CSVs (Lambda)
+      │
+      ▼
+[Silver]  s3://olist-processed-105906274703/silver/       ← Cleaned (Databricks)
+      │
+      ▼
+[Gold]    s3://olist-processed-105906274703/gold/         ← Aggregated (Databricks)
 ```
 
-## Project Structure
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Ingestion | AWS Lambda, Kaggle API |
+| Storage | Amazon S3 |
+| Orchestration | Amazon EventBridge |
+| Streaming | Amazon Kinesis *(planned)* |
+| Transformation | Databricks *(planned)* |
+| Secrets | AWS Secrets Manager |
+| IaC | AWS CloudFormation |
+| CI/CD | GitHub Actions (OIDC) |
+
+---
+
+## Folder Structure
 
 ```
 olist-de-pipeline/
-├── batch_pipeline/        # PySpark batch ingestion & transformation jobs
-├── streaming_pipeline/    # Kinesis/Kafka real-time event processing
-├── agent/                 # AI analytics agent powered by Anthropic Claude
-├── infra/                 # Terraform IaC for AWS resources
-├── common/                # Shared utilities (logger, S3 helpers, constants)
-├── .github/workflows/     # CI/CD pipelines (GitHub Actions)
-├── requirements.txt
-├── Makefile
-└── .env.example
+├── .github/
+│   └── workflows/
+│       └── ci.yml              # CI/CD — lint, test, deploy
+├── batch_pipeline/
+│   └── lambda/
+│       ├── olist_ingestor.py   # Bronze ingestion Lambda
+│       └── requirements.txt    # Lambda runtime dependencies
+├── streaming_pipeline/         # Kinesis streaming (coming soon)
+├── databricks/                 # Silver/Gold notebooks (coming soon)
+├── infra/
+│   └── cloudformation/
+│       └── template.yml        # All AWS resources
+├── docs/
+│   └── architecture.md         # Architecture deep-dive
+├── .gitignore
+└── README.md
 ```
 
-## Prerequisites
+---
 
-- Python 3.11+
-- AWS CLI configured (`aws configure`)
-- Terraform >= 1.5
-- Java 11+ (for PySpark)
+## Setup
 
-## Getting Started
+### Prerequisites
+- AWS CLI configured with appropriate IAM permissions
+- GitHub repository secrets set:
+  - `AWS_ROLE_ARN` — IAM role ARN for OIDC authentication
+
+### Deploy Infrastructure
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/madhave021/olist-de-pipeline.git
-cd olist-de-pipeline
-
-# 2. Set up environment
-cp .env.example .env
-# Edit .env with your values
-
-# 3. Install dependencies
-make install
-
-# 4. Provision AWS infrastructure
-cd infra
-terraform init
-terraform apply
-
-# 5. Run tests
-make test
+aws cloudformation deploy \
+  --stack-name olist-de-pipeline \
+  --template-file infra/cloudformation/template.yml \
+  --region ap-south-1 \
+  --capabilities CAPABILITY_NAMED_IAM
 ```
 
-## CI/CD
+### Update Kaggle Credentials
 
-GitHub Actions runs on every push to `main` and on pull requests:
-- Linting (flake8, black)
-- Unit tests with coverage
+After deploying, update the dummy values in AWS Secrets Manager:
 
-AWS credentials are stored as GitHub repository secrets (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`).
+```bash
+aws secretsmanager update-secret \
+  --secret-id olist/kaggle-credentials \
+  --secret-string '{"KAGGLE_USERNAME": "<your-username>", "KAGGLE_KEY": "<your-api-key>"}' \
+  --region ap-south-1
+```
+
+### CI/CD
+
+Push to `main` → GitHub Actions automatically:
+1. Lints with `flake8`
+2. Runs `pytest`
+3. Packages and uploads Lambda artifact to S3
+4. Deploys CloudFormation stack
+
+---
 
 ## License
 
