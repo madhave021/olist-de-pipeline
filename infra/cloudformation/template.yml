@@ -16,7 +16,7 @@ Resources:
   RawDataBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: olist-raw
+      BucketName: olist-raw-105906274703
       VersioningConfiguration:
         Status: Enabled
       BucketEncryption:
@@ -38,7 +38,7 @@ Resources:
   ProcessedDataBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: olist-processed
+      BucketName: olist-processed-105906274703
       VersioningConfiguration:
         Status: Enabled
       BucketEncryption:
@@ -92,8 +92,24 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
       Policies:
+        - PolicyName: olist-s3-scoped-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - arn:aws:s3:::olist-raw-105906274703/*
+                  - arn:aws:s3:::olist-processed-105906274703/*
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - arn:aws:s3:::olist-raw-105906274703
+                  - arn:aws:s3:::olist-processed-105906274703
         - PolicyName: olist-lambda-artifacts-105906274703-read
           PolicyDocument:
             Version: "2012-10-17"
