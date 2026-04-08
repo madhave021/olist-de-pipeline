@@ -1,0 +1,11 @@
+# Silver layer pipeline — Databricks / local execution
+# Pinned to Databricks Runtime 14.3 LTS (Spark 3.5, Delta 3.1)
+pyspark==3.5.0
+delta-spark==3.1.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Linting (matches CI config)
+flake8>=6.0.0

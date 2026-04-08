@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - develop
+      - "claude/**"
 
 permissions:
   id-token: write
@@ -36,8 +37,11 @@ jobs:
           pip install --no-cache-dir -r batch_pipeline/lambda/requirements.txt
           pip install --no-cache-dir flake8
 
-      - name: Lint with flake8
+      - name: Lint Lambda with flake8
         run: flake8 batch_pipeline/lambda/ --max-line-length=120 --exclude=__pycache__
+
+      - name: Lint Silver pipeline with flake8
+        run: flake8 databricks/silver/ databricks/tests/ --max-line-length=120 --exclude=__pycache__
 
   deploy:
     name: Deploy CloudFormation
